@@ -1,0 +1,1368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SheetCraft Pro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <!-- Google Identity Services (Sign in with Google) -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+    :root {
+      --bg: #0b0f13;
+      --panel: #11171d;
+      --panel-2: #161d24;
+      --border: #252d36;
+      --border-soft: #1c232b;
+      --text: #e9eef3;
+      --text-dim: #8b97a3;
+      --text-faint: #5c6772;
+      --accent: #1fbf75;
+      --accent-hover: #22d382;
+      --accent-dim: #123425;
+      --danger: #e5484d;
+      --danger-dim: #3a1e20;
+      --radius: 10px;
+      --font: 'Inter', -apple-system, sans-serif;
+      --header-h: 60px;
+      --toolbar-h: 52px;
+      --status-h: 40px;
+    }
+    :root[data-theme="light"] {
+      --bg: #f2f4f6;
+      --panel: #ffffff;
+      --panel-2: #f7f9fa;
+      --border: #e1e5ea;
+      --border-soft: #eceff2;
+      --text: #12181d;
+      --text-dim: #5c6772;
+      --text-faint: #98a2ab;
+      --accent: #0f9d5c;
+      --accent-hover: #0d8a51;
+      --accent-dim: #e3f6ec;
+      --danger: #d92d38;
+      --danger-dim: #fbe9ea;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+    button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+    input, select { font-family: inherit; }
+
+    .app { display: flex; flex-direction: column; height: 100vh; }
+
+    /* Header */
+    .header {
+      height: var(--header-h);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 20px; background: var(--panel);
+      border-bottom: 1px solid var(--border); flex-shrink: 0; gap: 16px;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .logo {
+      width: 32px; height: 32px; border-radius: 8px;
+      background: linear-gradient(145deg, var(--accent), #0d8a51);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .logo svg { width: 18px; height: 18px; }
+    .brand-name { font-weight: 800; font-size: 17px; letter-spacing: -0.02em; }
+    .brand-name span { color: var(--accent); }
+    .save-indicator {
+      font-size: 12.5px; color: var(--text-dim); font-weight: 500;
+      padding: 4px 10px; border-radius: 20px; background: var(--panel-2);
+    }
+    .header-actions { display: flex; align-items: center; gap: 8px; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 7px;
+      height: 36px; padding: 0 14px; border-radius: 8px;
+      font-size: 13.5px; font-weight: 600;
+      background: var(--panel-2); border: 1px solid var(--border);
+      color: var(--text); transition: all 0.12s;
+    }
+    .btn:hover { background: var(--border-soft); border-color: var(--text-faint); }
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-primary {
+      background: var(--accent); border-color: var(--accent); color: #04160d;
+    }
+    .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+    .btn svg { width: 15px; height: 15px; flex-shrink: 0; }
+    .user-badge {
+      display: none; align-items: center; gap: 8px;
+      padding: 4px 10px 4px 6px; border-radius: 20px;
+      background: var(--panel-2); border: 1px solid var(--border);
+      font-size: 13px; font-weight: 600;
+    }
+    .user-badge.visible { display: flex; }
+    .user-badge img {
+      width: 26px; height: 26px; border-radius: 50%; object-fit: cover;
+    }
+    .user-badge .name { color: var(--text); max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .user-badge .logout {
+      background: none; border: none; color: var(--text-faint);
+      font-size: 12px; font-weight: 700; cursor: pointer; padding: 2px 6px; border-radius: 4px;
+    }
+    .user-badge .logout:hover { color: var(--danger); background: var(--danger-dim); }
+    #googleSignInBtn { display: flex; }
+    #googleSignInBtn.hidden { display: none; }
+
+    #colorPicker {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+      pointer-events: none;
+    }
+    body.paint-mode,
+    body.paint-mode td {
+      cursor: cell !important;
+    }
+    body.paint-mode #fillBtn {
+      background: var(--accent-dim);
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+    body.paint-mode #fillBtn::after {
+      content: "";
+      position: absolute;
+      bottom: 3px;
+      right: 3px;
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+      background: var(--paint-color, #1fbf75);
+      border: 1px solid rgba(0,0,0,0.3);
+    }
+    #fillBtn { position: relative; }
+
+    /* Toolbar */
+    .toolbar {
+      height: var(--toolbar-h); display: none; align-items: center; gap: 6px;
+      padding: 0 16px; background: var(--panel);
+      border-bottom: 1px solid var(--border); flex-shrink: 0; overflow-x: auto;
+    }
+    .toolbar.visible { display: flex; }
+    .tb-group { display: flex; align-items: center; gap: 4px; }
+    .tb-sep { width: 1px; height: 22px; background: var(--border); margin: 0 6px; }
+    .icon-btn {
+      width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+      border-radius: 7px; color: var(--text-dim); border: 1px solid transparent;
+    }
+    .icon-btn:hover { background: var(--panel-2); color: var(--text); }
+    .icon-btn.active {
+      background: var(--accent-dim); color: var(--accent); border-color: var(--accent);
+    }
+    .icon-btn svg { width: 15px; height: 15px; }
+    select.tb-select {
+      height: 32px; background: var(--panel-2); border: 1px solid var(--border);
+      color: var(--text); border-radius: 7px; font-size: 13px; font-weight: 500;
+      padding: 0 8px; cursor: pointer;
+    }
+
+    /* Empty State */
+    .empty-state {
+      flex: 1; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 24px; padding: 40px 20px; text-align: center;
+    }
+    .empty-state.hidden { display: none; }
+    .empty-icon {
+      width: 72px; height: 72px; border-radius: 18px;
+      background: linear-gradient(145deg, var(--accent), #0d8a51);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 12px 32px rgba(31, 191, 117, 0.25);
+    }
+    .empty-icon svg { width: 36px; height: 36px; }
+    .empty-state h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.03em; }
+    .empty-state p {
+      font-size: 15px; color: var(--text-dim); max-width: 400px; line-height: 1.55;
+    }
+
+    /* Grid */
+    .grid-area {
+      flex: 1; overflow: auto; display: none; background: var(--bg); position: relative;
+    }
+    .grid-area.visible { display: block; }
+    table.sheet {
+      border-collapse: collapse; width: max-content; min-width: 100%; font-size: 14px;
+    }
+    table.sheet th, table.sheet td {
+      border: 1px solid var(--border-soft); height: 40px;
+      min-width: 110px; max-width: 280px; position: relative;
+    }
+    table.sheet thead th {
+      position: sticky; top: 0; z-index: 3; background: var(--panel-2);
+      color: var(--text-dim); font-size: 12px; font-weight: 700;
+      text-align: center; user-select: none; padding: 0 8px;
+    }
+    table.sheet tbody th {
+      position: sticky; left: 0; z-index: 2; background: var(--panel-2);
+      color: var(--text-faint); font-size: 12px; font-weight: 600;
+      width: 44px; min-width: 44px; text-align: center; user-select: none;
+    }
+    table.sheet thead th.corner {
+      left: 0; z-index: 4; width: 44px; min-width: 44px;
+    }
+    table.sheet td { background: var(--panel); padding: 0; cursor: cell; }
+    table.sheet td.selected {
+      outline: 2px solid var(--accent); outline-offset: -2px; z-index: 1;
+    }
+    table.sheet td.selected .cell { background: var(--accent-dim); }
+    .cell {
+      width: 100%; height: 100%; padding: 8px 12px; display: flex; align-items: center;
+      overflow: hidden; white-space: nowrap; text-overflow: ellipsis; outline: none;
+    }
+    .cell.bold { font-weight: 700; }
+    .cell.italic { font-style: italic; }
+    .cell.align-left { justify-content: flex-start; }
+    .cell.align-center { justify-content: center; }
+    .cell.align-right { justify-content: flex-end; }
+    .cell input {
+      width: 100%; height: 100%; border: none; outline: none;
+      background: transparent; color: var(--text); font-size: inherit;
+      font-family: inherit; padding: 8px 12px;
+    }
+    table.sheet.border-none th, table.sheet.border-none td { border-color: transparent; }
+    table.sheet.border-light th, table.sheet.border-light td { border-color: var(--border-soft); }
+    table.sheet.border-medium th, table.sheet.border-medium td { border-color: var(--border); }
+    table.sheet.border-strong th, table.sheet.border-strong td {
+      border-width: 1.5px; border-color: var(--text-faint);
+    }
+
+    /* Status */
+    .status {
+      height: var(--status-h); display: none; align-items: center;
+      justify-content: space-between; padding: 0 16px;
+      background: var(--panel); border-top: 1px solid var(--border);
+      font-size: 12.5px; color: var(--text-dim); flex-shrink: 0;
+    }
+    .status.visible { display: flex; }
+    .status b { color: var(--text); font-weight: 700; }
+
+    /* Modal */
+    .overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+      display: none; align-items: center; justify-content: center; z-index: 100;
+    }
+    .overlay.open { display: flex; }
+    .modal {
+      width: 380px; background: var(--panel); border: 1px solid var(--border);
+      border-radius: 14px; padding: 24px; box-shadow: 0 24px 60px rgba(0,0,0,0.45);
+    }
+    .modal h2 { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+    .modal .sub { font-size: 13.5px; color: var(--text-dim); margin-bottom: 20px; }
+    .form-row { margin-bottom: 16px; }
+    .form-row label {
+      display: block; font-size: 12.5px; font-weight: 600;
+      color: var(--text-dim); margin-bottom: 6px;
+    }
+    .form-row input[type="number"], .form-row select {
+      width: 100%; height: 40px; background: var(--panel-2);
+      border: 1px solid var(--border); border-radius: 8px;
+      color: var(--text); padding: 0 12px; font-size: 14px;
+    }
+    .form-row input:focus, .form-row select:focus {
+      outline: none; border-color: var(--accent);
+    }
+    .form-row.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; }
+
+    /* Export menu */
+    .export-wrap { position: relative; }
+    .export-menu {
+      position: absolute; top: 42px; right: 0; width: 220px;
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 12px; box-shadow: 0 16px 40px rgba(0,0,0,0.4);
+      padding: 8px; display: none; z-index: 50;
+    }
+    .export-menu.open { display: block; }
+    .export-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; border-radius: 8px;
+      font-size: 13.5px; font-weight: 600; cursor: pointer; color: var(--text);
+    }
+    .export-item:hover { background: var(--panel-2); }
+    .export-item svg { width: 16px; height: 16px; color: var(--text-dim); }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 60px; left: 50%; transform: translateX(-50%);
+      background: var(--accent-dim); color: var(--accent);
+      border: 1px solid var(--accent); padding: 10px 20px;
+      border-radius: 10px; font-weight: 600; font-size: 14px;
+      opacity: 0; transition: opacity 0.25s; pointer-events: none;
+      z-index: 200; box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    }
+    .toast.show { opacity: 1; }
+    .toast.error {
+      background: var(--danger-dim); color: var(--danger); border-color: var(--danger);
+    }
+
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb {
+      background: var(--border); border-radius: 5px; border: 2px solid var(--bg);
+    }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-faint); }
+
+    @media (max-width: 640px) {
+      .brand-name { display: none; }
+      .empty-state h1 { font-size: 22px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="brand">
+        <div class="logo">
+          <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1.5" stroke="#04160d" stroke-width="2"/><rect x="14" y="3" width="7" height="7" rx="1.5" stroke="#04160d" stroke-width="2"/><rect x="3" y="14" width="7" height="7" rx="1.5" stroke="#04160d" stroke-width="2"/><rect x="14" y="14" width="7" height="7" rx="1.5" stroke="#04160d" stroke-width="2"/></svg>
+        </div>
+        <div class="brand-name">SheetCraft <span>Pro</span></div>
+        <div class="save-indicator" id="saveIndicator">Ready</div>
+      </div>
+      <div class="header-actions">
+        <button class="btn" id="undoBtn" title="Undo (Ctrl+Z)" disabled>
+          <svg viewBox="0 0 24 24" fill="none"><path d="M9 14l-4-4 4-4M5 10h9a5 5 0 010 10h-1" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Undo
+        </button>
+        <button class="btn" id="redoBtn" title="Redo (Ctrl+Y)" disabled>
+          <svg viewBox="0 0 24 24" fill="none"><path d="M15 14l4-4-4-4M19 10h-9a5 5 0 000 10h1" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Redo
+        </button>
+        <div class="export-wrap">
+          <button class="btn" id="exportBtn">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Export
+          </button>
+          <div class="export-menu" id="exportMenu">
+            <div class="export-item" data-type="png">
+              <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.6"/><circle cx="8.5" cy="9.5" r="1.5" fill="currentColor"/><path d="M21 15l-5-5-9 9" stroke="currentColor" stroke-width="1.6"/></svg>
+              PNG Image
+            </div>
+            <div class="export-item" data-type="pdf">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M6 2h9l5 5v15H6z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M15 2v5h5" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+              PDF Document
+            </div>
+            <div class="export-item" data-type="csv">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M6 2h9l5 5v15H6z" stroke="currentColor" stroke-width="1.6"/><path d="M15 2v5h5" stroke="currentColor" stroke-width="1.6"/></svg>
+              CSV File
+            </div>
+            <div class="export-item" data-type="xlsx">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M6 2h9l5 5v15H6z" stroke="currentColor" stroke-width="1.6"/><path d="M15 2v5h5" stroke="currentColor" stroke-width="1.6"/></svg>
+              Excel (.xlsx)
+            </div>
+          </div>
+        </div>
+        <button class="btn" id="themeBtn" title="Toggle theme">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M21 12.8A9 9 0 1111.2 3 7 7 0 0021 12.8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="btn" id="googleSignInBtn" title="Sign in with Google">
+          <svg viewBox="0 0 24 24" width="16" height="16"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+          Sign in
+        </button>
+        <div class="user-badge" id="userBadge">
+          <img id="userAvatar" src="" alt="" />
+          <span class="name" id="userName"></span>
+          <button class="logout" id="logoutBtn">Logout</button>
+        </div>
+        <button class="btn btn-primary" id="newTableBtn">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+          New Table
+        </button>
+      </div>
+    </header>
+
+    <div class="toolbar" id="toolbar">
+      <div class="tb-group">
+        <button class="btn" id="insertRowBtn" style="height:32px;padding:0 10px;font-size:12.5px;">+ Row</button>
+        <button class="btn" id="insertColBtn" style="height:32px;padding:0 10px;font-size:12.5px;">+ Column</button>
+        <button class="btn" id="deleteRowBtn" style="height:32px;padding:0 10px;font-size:12.5px;">− Row</button>
+        <button class="btn" id="deleteColBtn" style="height:32px;padding:0 10px;font-size:12.5px;">− Column</button>
+      </div>
+      <div class="tb-sep"></div>
+      <div class="tb-group">
+        <button class="icon-btn" id="boldBtn" title="Bold"><svg viewBox="0 0 24 24" fill="none"><path d="M6 4h7a4 4 0 010 8H6zM6 12h8a4 4 0 010 8H6z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></button>
+        <button class="icon-btn" id="italicBtn" title="Italic"><svg viewBox="0 0 24 24" fill="none"><path d="M10 4h8M6 20h8M14 4L10 20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+      </div>
+      <div class="tb-sep"></div>
+      <div class="tb-group">
+        <button class="icon-btn" id="alignLeftBtn" title="Align left"><svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h10M4 18h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+        <button class="icon-btn" id="alignCenterBtn" title="Align center"><svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16M7 12h10M5 18h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+        <button class="icon-btn" id="alignRightBtn" title="Align right"><svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16M10 12h10M6 18h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+      </div>
+      <div class="tb-sep"></div>
+      <div class="tb-group" style="position:relative;">
+        <button class="icon-btn" id="fillBtn" title="Fill color — click to pick color, click again to exit paint mode">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M19.14 3.5L20.5 4.86l-9.19 9.19-1.41-1.41L19.14 3.5z" stroke="currentColor" stroke-width="1.6"/><path d="M11.5 14.5L5 21l-2-2 6.5-6.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 21h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </button>
+        <input type="color" id="colorPicker" value="#1fbf75" />
+      </div>
+      <div class="tb-sep"></div>
+      <div class="tb-group">
+        <select class="tb-select" id="borderSelect">
+          <option value="none">No Borders</option>
+          <option value="light" selected>Light Borders</option>
+          <option value="medium">Medium Borders</option>
+          <option value="strong">Strong Borders</option>
+        </select>
+      </div>
+      <div style="flex:1"></div>
+      <button class="btn" id="clearBtn" style="height:32px;padding:0 10px;font-size:12.5px;color:var(--danger);">Clear All</button>
+    </div>
+
+    <div class="empty-state" id="emptyState">
+      <div class="empty-icon">
+        <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1.5" stroke="#04160d" stroke-width="2"/><rect x="14" y="3" width="7" height="7" rx="1.5" stroke="#04160d" stroke-width="2"/><rect x="3" y="14" width="7" height="7" rx="1.5" stroke="#04160d" stroke-width="2"/><rect x="14" y="14" width="7" height="7" rx="1.5" stroke="#04160d" stroke-width="2"/></svg>
+      </div>
+      <h1>Create beautiful tables in seconds</h1>
+      <p>Choose rows, columns and border style. Fill your data, format it, then export a clean high-quality image, PDF or spreadsheet.</p>
+      <div>
+        <button class="btn btn-primary" id="createTableBtn" style="height:44px;padding:0 24px;font-size:15px;">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+          Create Table
+        </button>
+      </div>
+    </div>
+
+    <div class="grid-area" id="gridArea">
+      <table class="sheet border-light" id="sheet"></table>
+    </div>
+
+    <div class="status" id="statusBar">
+      <div>
+        <span>Rows: <b id="rowCount">0</b></span>&nbsp;&nbsp;
+        <span>Columns: <b id="colCount">0</b></span>&nbsp;&nbsp;
+        <span>Selected: <b id="selectedCell">—</b></span>
+      </div>
+      <div>Click a cell to edit • Ctrl+Z to undo</div>
+    </div>
+  </div>
+
+  <div class="overlay" id="createOverlay">
+    <div class="modal">
+      <h2>Create New Table</h2>
+      <p class="sub">Choose the size and look of your table</p>
+      <div class="form-row two-col">
+        <div>
+          <label>Rows</label>
+          <input type="number" id="inputRows" min="1" max="100" value="8" />
+        </div>
+        <div>
+          <label>Columns</label>
+          <input type="number" id="inputCols" min="1" max="26" value="5" />
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Border Style</label>
+        <select id="inputBorder">
+          <option value="none">No Borders</option>
+          <option value="light" selected>Light Borders</option>
+          <option value="medium">Medium Borders</option>
+          <option value="strong">Strong Borders</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <input type="checkbox" id="inputHeader" checked style="width:auto;" />
+          First row is header
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" id="cancelCreateBtn">Cancel</button>
+        <button class="btn btn-primary" id="confirmCreateBtn">Create Table</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    (function () {
+      "use strict";
+
+      const STORAGE_KEY = "sheetcraft_pro_v1";
+      let state = {
+        rows: 0, cols: 0, data: [], styles: {},
+        border: "light", hasHeader: true,
+        // selection range (inclusive). Primary cell = sel.r1, sel.c1
+        sel: { r1: 0, c1: 0, r2: 0, c2: 0 }
+      };
+      let history = [];
+      let historyIdx = -1;
+      let editing = false;
+      let saveTimer = null;
+      let isDragging = false;
+      let dragStart = null;
+
+      const $ = s => document.querySelector(s);
+      const $$ = s => document.querySelectorAll(s);
+
+      function normalizeSel() {
+        const s = state.sel;
+        return {
+          r1: Math.min(s.r1, s.r2),
+          c1: Math.min(s.c1, s.c2),
+          r2: Math.max(s.r1, s.r2),
+          c2: Math.max(s.c1, s.c2)
+        };
+      }
+
+      function isCellSelected(r, c) {
+        const s = normalizeSel();
+        return r >= s.r1 && r <= s.r2 && c >= s.c1 && c <= s.c2;
+      }
+
+      function forEachSelected(fn) {
+        const s = normalizeSel();
+        for (let r = s.r1; r <= s.r2; r++) {
+          for (let c = s.c1; c <= s.c2; c++) fn(r, c);
+        }
+      }
+
+      function colLetter(i) {
+        let s = "", n = i;
+        do { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26) - 1; } while (n >= 0);
+        return s;
+      }
+
+      function showToast(msg, isError = false) {
+        const el = $("#toast");
+        el.textContent = msg;
+        el.className = "toast show" + (isError ? " error" : "");
+        clearTimeout(el._t);
+        el._t = setTimeout(() => el.classList.remove("show"), 2600);
+      }
+
+      function setSaveStatus(text) { $("#saveIndicator").textContent = text; }
+
+      function snapshot() {
+        return JSON.stringify({
+          rows: state.rows, cols: state.cols, data: state.data,
+          styles: state.styles, border: state.border, hasHeader: state.hasHeader
+        });
+      }
+
+      function pushHistory() {
+        history = history.slice(0, historyIdx + 1);
+        history.push(snapshot());
+        if (history.length > 60) history.shift();
+        historyIdx = history.length - 1;
+        updateUndoRedo();
+      }
+
+      function undo() {
+        if (historyIdx <= 0) return;
+        historyIdx--;
+        applySnapshot(history[historyIdx]);
+        updateUndoRedo();
+        queueSave();
+      }
+
+      function redo() {
+        if (historyIdx >= history.length - 1) return;
+        historyIdx++;
+        applySnapshot(history[historyIdx]);
+        updateUndoRedo();
+        queueSave();
+      }
+
+      function applySnapshot(json) {
+        const s = JSON.parse(json);
+        state.rows = s.rows; state.cols = s.cols; state.data = s.data;
+        state.styles = s.styles; state.border = s.border; state.hasHeader = s.hasHeader;
+        const r = Math.min(state.sel.r1, state.rows - 1);
+        const c = Math.min(state.sel.c1, state.cols - 1);
+        state.sel = { r1: r, c1: c, r2: r, c2: c };
+        render();
+      }
+
+      function updateUndoRedo() {
+        $("#undoBtn").disabled = historyIdx <= 0;
+        $("#redoBtn").disabled = historyIdx >= history.length - 1;
+      }
+
+      // Detect once whether any storage is available (sandbox often blocks both)
+      let storageAvailable = null;
+      function canUseStorage() {
+        if (storageAvailable !== null) return storageAvailable;
+        try {
+          const k = "__sc_test__";
+          localStorage.setItem(k, "1");
+          localStorage.removeItem(k);
+          storageAvailable = "local";
+        } catch (_) {
+          try {
+            const k = "__sc_test__";
+            sessionStorage.setItem(k, "1");
+            sessionStorage.removeItem(k);
+            storageAvailable = "session";
+          } catch (_) {
+            storageAvailable = false;
+          }
+        }
+        return storageAvailable;
+      }
+
+      function queueSave() {
+        if (canUseStorage() === false) {
+          setSaveStatus("Working (storage blocked)");
+          return;
+        }
+        setSaveStatus("Saving…");
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(() => {
+          try {
+            const data = snapshot();
+            if (storageAvailable === "local") localStorage.setItem(STORAGE_KEY, data);
+            else sessionStorage.setItem(STORAGE_KEY, data);
+            setSaveStatus("All changes saved");
+          } catch (e) {
+            storageAvailable = false;
+            setSaveStatus("Working (storage blocked)");
+          }
+        }, 400);
+      }
+
+      function loadFromStorage() {
+        const type = canUseStorage();
+        if (!type) return false;
+        try {
+          const raw = type === "local"
+            ? localStorage.getItem(STORAGE_KEY)
+            : sessionStorage.getItem(STORAGE_KEY);
+          if (!raw) return false;
+          const s = JSON.parse(raw);
+          if (!s || !s.rows || !s.cols) return false;
+          state.rows = s.rows; state.cols = s.cols; state.data = s.data || [];
+          state.styles = s.styles || {}; state.border = s.border || "light";
+          state.hasHeader = s.hasHeader !== false;
+          state.sel = { r1: 0, c1: 0, r2: 0, c2: 0 };
+          return true;
+        } catch (e) { return false; }
+      }
+
+      function openCreateModal() {
+        $("#createOverlay").classList.add("open");
+        $("#inputRows").focus();
+      }
+
+      function createTable(rows, cols, border, hasHeader) {
+        state.rows = rows; state.cols = cols; state.border = border;
+        state.hasHeader = hasHeader;
+        state.data = Array.from({ length: rows }, () => Array(cols).fill(""));
+        state.styles = {};
+        state.sel = { r1: 0, c1: 0, r2: 0, c2: 0 };
+        history = [snapshot()]; historyIdx = 0;
+        showTableUI();
+        render();
+        queueSave();
+        showToast(`Table created • ${rows} × ${cols}`);
+      }
+
+      function showTableUI() {
+        $("#emptyState").classList.add("hidden");
+        $("#gridArea").classList.add("visible");
+        $("#toolbar").classList.add("visible");
+        $("#statusBar").classList.add("visible");
+      }
+
+      function hideTableUI() {
+        $("#emptyState").classList.remove("hidden");
+        $("#gridArea").classList.remove("visible");
+        $("#toolbar").classList.remove("visible");
+        $("#statusBar").classList.remove("visible");
+      }
+
+      function render() {
+        const table = $("#sheet");
+        table.className = `sheet border-${state.border}`;
+        let html = "<thead><tr><th class='corner'></th>";
+        for (let c = 0; c < state.cols; c++) html += `<th>${colLetter(c)}</th>`;
+        html += "</tr></thead><tbody>";
+
+        for (let r = 0; r < state.rows; r++) {
+          html += `<tr><th>${r + 1}</th>`;
+          for (let c = 0; c < state.cols; c++) {
+            const key = `${r}-${c}`;
+            const style = state.styles[key] || {};
+            const isSel = isCellSelected(r, c);
+            const classes = ["cell"];
+            if (style.bold) classes.push("bold");
+            if (style.italic) classes.push("italic");
+            classes.push("align-" + (style.align || "left"));
+            let bgStyle = style.bg ? `background:${style.bg};` : "";
+            if (state.hasHeader && r === 0) bgStyle += "font-weight:700;";
+            const val = state.data[r][c] || "";
+            html += `<td class="${isSel ? "selected" : ""}" data-r="${r}" data-c="${c}" style="${bgStyle}">
+              <div class="${classes.join(" ")}" data-cell="${key}">${escapeHtml(val)}</div>
+            </td>`;
+          }
+          html += "</tr>";
+        }
+        html += "</tbody>";
+        table.innerHTML = html;
+
+        $("#rowCount").textContent = state.rows;
+        $("#colCount").textContent = state.cols;
+        const ns = normalizeSel();
+        if (ns.r1 === ns.r2 && ns.c1 === ns.c2) {
+          $("#selectedCell").textContent = `${colLetter(ns.c1)}${ns.r1 + 1}`;
+        } else {
+          $("#selectedCell").textContent = `${colLetter(ns.c1)}${ns.r1 + 1}:${colLetter(ns.c2)}${ns.r2 + 1}`;
+        }
+
+        const key = `${state.sel.r1}-${state.sel.c1}`;
+        const st = state.styles[key] || {};
+        $("#boldBtn").classList.toggle("active", !!st.bold);
+        $("#italicBtn").classList.toggle("active", !!st.italic);
+        $("#alignLeftBtn").classList.toggle("active", (st.align || "left") === "left");
+        $("#alignCenterBtn").classList.toggle("active", st.align === "center");
+        $("#alignRightBtn").classList.toggle("active", st.align === "right");
+        $("#borderSelect").value = state.border;
+
+        attachCellEvents();
+      }
+
+      function escapeHtml(str) {
+        return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+      }
+
+      function attachCellEvents() {
+        $$("#sheet td[data-r]").forEach(td => {
+          td.addEventListener("mousedown", (e) => {
+            if (editing || e.button !== 0) return;
+            e.preventDefault();
+            const r = +td.dataset.r, c = +td.dataset.c;
+
+            // Paint mode: apply color and optionally drag-paint
+            if (paintMode) {
+              applyFillToCell(r, c, paintColor, true);
+              isDragging = true;
+              dragStart = { r, c };
+              return;
+            }
+
+            isDragging = true;
+            dragStart = { r, c };
+            state.sel = { r1: r, c1: c, r2: r, c2: c };
+            render();
+          });
+          td.addEventListener("mouseenter", () => {
+            if (!isDragging || !dragStart) return;
+            const r = +td.dataset.r, c = +td.dataset.c;
+            if (paintMode) {
+              applyFillToCell(r, c, paintColor, true);
+              return;
+            }
+            state.sel = { r1: dragStart.r, c1: dragStart.c, r2: r, c2: c };
+            render();
+          });
+          td.addEventListener("dblclick", () => {
+            if (editing || paintMode) return;
+            startEdit(td);
+          });
+        });
+      }
+
+      document.addEventListener("mouseup", () => {
+        if (isDragging) {
+          if (paintMode) {
+            pushHistory();
+            queueSave();
+          }
+          isDragging = false;
+          dragStart = null;
+        }
+      });
+
+      function startEdit(td) {
+        if (editing) return;
+        const r = +td.dataset.r, c = +td.dataset.c;
+        const cell = td.querySelector(".cell");
+        if (!cell) return;
+        editing = true;
+        const current = state.data[r][c] || "";
+        cell.innerHTML = `<input type="text" value="${escapeHtml(current)}" spellcheck="false" />`;
+        const input = cell.querySelector("input");
+        input.focus(); input.select();
+
+        let committed = false;
+        const commit = () => {
+          if (committed) return;
+          committed = true;
+          state.data[r][c] = input.value;
+          editing = false;
+          pushHistory();
+          render();
+          queueSave();
+        };
+
+        input.addEventListener("blur", commit);
+        input.addEventListener("keydown", e => {
+          if (e.key === "Enter") {
+            e.preventDefault(); commit();
+            if (r < state.rows - 1) {
+              state.sel = { r1: r + 1, c1: c, r2: r + 1, c2: c };
+              render();
+            }
+          } else if (e.key === "Escape") {
+            committed = true; editing = false; render();
+          } else if (e.key === "Tab") {
+            e.preventDefault(); commit();
+            const nextC = e.shiftKey ? Math.max(0, c - 1) : Math.min(state.cols - 1, c + 1);
+            state.sel = { r1: r, c1: nextC, r2: r, c2: nextC };
+            render();
+            const nextTd = $(`#sheet td[data-r="${r}"][data-c="${nextC}"]`);
+            if (nextTd) startEdit(nextTd);
+          }
+        });
+      }
+
+      // ========== PASTE (Excel / Google Sheets / CSV) ==========
+      function parseClipboard(text) {
+        const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+        // Drop trailing empty line that Excel often adds
+        while (lines.length && lines[lines.length - 1] === "") lines.pop();
+        if (!lines.length) return [];
+
+        const hasTab = lines.some(l => l.includes("\t"));
+        const sep = hasTab ? "\t" : ",";
+
+        return lines.map(line => {
+          if (sep === "\t") return line.split("\t");
+          // Simple CSV parse (handles quoted fields)
+          const vals = [];
+          let cur = "", inQ = false;
+          for (let i = 0; i < line.length; i++) {
+            const ch = line[i];
+            if (ch === '"') {
+              if (inQ && line[i + 1] === '"') { cur += '"'; i++; }
+              else inQ = !inQ;
+            } else if (ch === "," && !inQ) {
+              vals.push(cur); cur = "";
+            } else cur += ch;
+          }
+          vals.push(cur);
+          return vals;
+        });
+      }
+
+      document.addEventListener("paste", (e) => {
+        if (editing) return;
+        if (!state.rows || !state.cols) return;
+        const target = e.target;
+        if (target && (target.tagName === "INPUT" || target.tagName === "SELECT" || target.tagName === "TEXTAREA")) return;
+
+        const text = (e.clipboardData || window.clipboardData).getData("text/plain");
+        if (!text || !text.trim()) return;
+        e.preventDefault();
+
+        const rows = parseClipboard(text);
+        if (!rows.length || !rows[0].length) return;
+
+        const needRows = rows.length;
+        const needCols = Math.max(...rows.map(r => r.length));
+        const startR = state.sel.r1;
+        const startC = state.sel.c1;
+
+        // Available space from the selected starting cell to the end of the table
+        const availableRows = state.rows - startR;
+        const availableCols = state.cols - startC;
+
+        if (needRows > availableRows || needCols > availableCols) {
+          showToast(
+            `Not enough cells. Need at least ${needRows} rows × ${needCols} columns from the selected cell. ` +
+            `Available: ${availableRows} rows × ${availableCols} columns. Add more rows/columns first.`,
+            true
+          );
+          return; // Do NOT paste, do NOT expand
+        }
+
+        // Write data (only when space is sufficient)
+        for (let r = 0; r < needRows; r++) {
+          for (let c = 0; c < rows[r].length; c++) {
+            const tr = startR + r;
+            const tc = startC + c;
+            state.data[tr][tc] = rows[r][c];
+          }
+        }
+
+        state.sel = {
+          r1: startR,
+          c1: startC,
+          r2: startR + needRows - 1,
+          c2: startC + needCols - 1
+        };
+        pushHistory();
+        render();
+        queueSave();
+        showToast(`Pasted ${needRows} × ${needCols} cells`);
+      });
+
+      document.addEventListener("keydown", e => {
+        if (editing) return;
+        if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
+
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !e.shiftKey) {
+          e.preventDefault(); undo(); return;
+        }
+        if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === "y" || (e.key.toLowerCase() === "z" && e.shiftKey))) {
+          e.preventDefault(); redo(); return;
+        }
+        if (!state.rows) return;
+
+        let r = state.sel.r1, c = state.sel.c1;
+        let moved = false;
+
+        if (e.key === "ArrowDown") { r = Math.min(state.rows - 1, r + 1); moved = true; }
+        else if (e.key === "ArrowUp") { r = Math.max(0, r - 1); moved = true; }
+        else if (e.key === "ArrowRight") { c = Math.min(state.cols - 1, c + 1); moved = true; }
+        else if (e.key === "ArrowLeft") { c = Math.max(0, c - 1); moved = true; }
+        else if (e.key === "Tab") {
+          e.preventDefault();
+          c = e.shiftKey ? Math.max(0, c - 1) : Math.min(state.cols - 1, c + 1);
+          moved = true;
+        } else if (e.key === "Enter") {
+          e.preventDefault(); r = Math.min(state.rows - 1, r + 1); moved = true;
+        } else if (e.key === "Delete" || e.key === "Backspace") {
+          e.preventDefault();
+          forEachSelected((rr, cc) => { state.data[rr][cc] = ""; });
+          pushHistory(); render(); queueSave(); return;
+        } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+          // Collapse to primary cell and start typing
+          state.sel = { r1: r, c1: c, r2: r, c2: c };
+          const td = $(`#sheet td[data-r="${r}"][data-c="${c}"]`);
+          if (td) {
+            state.data[r][c] = "";
+            startEdit(td);
+            setTimeout(() => {
+              const input = td.querySelector("input");
+              if (input) { input.value = e.key; input.selectionStart = input.selectionEnd = 1; }
+            }, 10);
+          }
+          return;
+        }
+
+        if (moved) {
+          e.preventDefault();
+          state.sel = { r1: r, c1: c, r2: r, c2: c };
+          render();
+          const td = $(`#sheet td[data-r="${r}"][data-c="${c}"]`);
+          if (td) td.scrollIntoView({ block: "nearest", inline: "nearest" });
+        }
+      });
+
+      function toggleStyle(prop) {
+        // Toggle based on primary cell, apply to whole selection
+        const primaryKey = `${state.sel.r1}-${state.sel.c1}`;
+        const primary = state.styles[primaryKey] || {};
+        const newVal = !primary[prop];
+        forEachSelected((r, c) => {
+          const key = `${r}-${c}`;
+          if (!state.styles[key]) state.styles[key] = {};
+          state.styles[key][prop] = newVal;
+        });
+        pushHistory(); render(); queueSave();
+      }
+
+      function setAlign(align) {
+        forEachSelected((r, c) => {
+          const key = `${r}-${c}`;
+          if (!state.styles[key]) state.styles[key] = {};
+          state.styles[key].align = align;
+        });
+        pushHistory(); render(); queueSave();
+      }
+
+      let paintMode = false;
+      let paintColor = "#1fbf7544";
+
+      function hexToSoft(hex) {
+        // Convert #rrggbb to soft transparent version for cells
+        if (!hex || hex === "transparent") return "transparent";
+        const h = hex.replace("#", "");
+        if (h.length !== 6) return hex + "44";
+        return "#" + h + "44";
+      }
+
+      function applyFillToSelection(color) {
+        const soft = hexToSoft(color);
+        forEachSelected((r, c) => {
+          const key = `${r}-${c}`;
+          if (!state.styles[key]) state.styles[key] = {};
+          if (soft === "transparent") delete state.styles[key].bg;
+          else state.styles[key].bg = soft;
+        });
+        pushHistory(); render(); queueSave();
+      }
+
+      function applyFillToCell(r, c, color, skipRender) {
+        const soft = hexToSoft(color);
+        const key = `${r}-${c}`;
+        if (!state.styles[key]) state.styles[key] = {};
+        if (soft === "transparent") delete state.styles[key].bg;
+        else state.styles[key].bg = soft;
+        // Live update DOM without full re-render (smooth painting)
+        const td = $(`#sheet td[data-r="${r}"][data-c="${c}"]`);
+        if (td) {
+          if (soft === "transparent") td.style.background = "";
+          else td.style.background = soft;
+        }
+        if (!skipRender) {
+          pushHistory();
+          queueSave();
+        }
+      }
+
+      function enterPaintMode(color) {
+        paintMode = true;
+        paintColor = color;
+        document.body.classList.add("paint-mode");
+        document.body.style.setProperty("--paint-color", color);
+        $("#fillBtn").classList.add("active");
+        showToast("Paint mode ON — click cells to fill. Click Fill again to exit.");
+      }
+
+      function exitPaintMode() {
+        paintMode = false;
+        document.body.classList.remove("paint-mode");
+        $("#fillBtn").classList.remove("active");
+        showToast("Paint mode OFF");
+      }
+
+      function insertRow() {
+        // Always add new empty row at the bottom
+        state.data.push(Array(state.cols).fill(""));
+        state.rows++;
+        const c = state.sel.c1;
+        state.sel = { r1: state.rows - 1, c1: c, r2: state.rows - 1, c2: c };
+        pushHistory();
+        render();
+        queueSave();
+      }
+
+      function insertCol() {
+        // Always add new empty column at the right (end)
+        state.data.forEach(row => row.push(""));
+        state.cols++;
+        const r = state.sel.r1;
+        state.sel = { r1: r, c1: state.cols - 1, r2: r, c2: state.cols - 1 };
+        pushHistory();
+        render();
+        queueSave();
+      }
+
+      function deleteRow() {
+        // Always delete the bottom (last) row
+        if (state.rows <= 1) { showToast("Cannot delete the last row", true); return; }
+        const r = state.rows - 1;
+        state.data.pop();
+        state.rows--;
+        // Remove styles that belonged to the deleted row
+        const newStyles = {};
+        Object.keys(state.styles).forEach(k => {
+          const [rr, cc] = k.split("-").map(Number);
+          if (rr === r) return;
+          newStyles[k] = state.styles[k];
+        });
+        state.styles = newStyles;
+        // Keep selection valid
+        const nr = Math.min(state.sel.r1, state.rows - 1);
+        const nc = Math.min(state.sel.c1, state.cols - 1);
+        state.sel = { r1: nr, c1: nc, r2: nr, c2: nc };
+        pushHistory(); render(); queueSave();
+      }
+
+      function deleteCol() {
+        // Always delete the rightmost (last) column
+        if (state.cols <= 1) { showToast("Cannot delete the last column", true); return; }
+        const c = state.cols - 1;
+        state.data.forEach(row => row.pop());
+        state.cols--;
+        // Remove styles that belonged to the deleted column
+        const newStyles = {};
+        Object.keys(state.styles).forEach(k => {
+          const [rr, cc] = k.split("-").map(Number);
+          if (cc === c) return;
+          newStyles[k] = state.styles[k];
+        });
+        state.styles = newStyles;
+        // Keep selection valid
+        const nr = Math.min(state.sel.r1, state.rows - 1);
+        const nc = Math.min(state.sel.c1, state.cols - 1);
+        state.sel = { r1: nr, c1: nc, r2: nr, c2: nc };
+        pushHistory(); render(); queueSave();
+      }
+
+      function clearAll() {
+        if (!confirm("Clear all data in this table?")) return;
+        state.data = Array.from({ length: state.rows }, () => Array(state.cols).fill(""));
+        state.styles = {};
+        pushHistory(); render(); queueSave();
+        showToast("Table cleared");
+      }
+
+      function getDataForExport() { return state.data.map(row => [...row]); }
+
+      function downloadBlob(blob, name) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url; a.download = name; a.click();
+        URL.revokeObjectURL(url);
+      }
+
+      function exportCSV() {
+        const rows = getDataForExport();
+        const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+        downloadBlob(new Blob([csv], { type: "text/csv;charset=utf-8;" }), "sheetcraft-table.csv");
+        showToast("CSV exported");
+      }
+
+      function exportXLSX() {
+        const ws = XLSX.utils.aoa_to_sheet(getDataForExport());
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+        XLSX.writeFile(wb, "sheetcraft-table.xlsx");
+        showToast("Excel exported");
+      }
+
+      function captureTable(cb) {
+        const table = $("#sheet");
+        const bg = getComputedStyle(document.documentElement).getPropertyValue("--panel").trim() || "#11171d";
+        html2canvas(table, {
+          backgroundColor: bg, scale: 2, useCORS: true, logging: false, allowTaint: true
+        }).then(canvas => cb(canvas)).catch(() => cb(null));
+      }
+
+      function exportPNG() {
+        showToast("Capturing table…");
+        captureTable(canvas => {
+          if (!canvas) return showToast("Export failed", true);
+          canvas.toBlob(blob => {
+            downloadBlob(blob, "sheetcraft-table.png");
+            showToast("PNG exported");
+          }, "image/png");
+        });
+      }
+
+      function exportPDF() {
+        showToast("Creating PDF…");
+        captureTable(canvas => {
+          if (!canvas) return showToast("Export failed", true);
+          const img = canvas.toDataURL("image/png");
+          const { jsPDF } = window.jspdf;
+          const pdf = new jsPDF({
+            orientation: canvas.width > canvas.height ? "l" : "p",
+            unit: "pt", format: [canvas.width / 2, canvas.height / 2]
+          });
+          pdf.addImage(img, "PNG", 0, 0, canvas.width / 2, canvas.height / 2);
+          pdf.save("sheetcraft-table.pdf");
+          showToast("PDF exported");
+        });
+      }
+
+      // Events
+      $("#createTableBtn").addEventListener("click", openCreateModal);
+      $("#newTableBtn").addEventListener("click", openCreateModal);
+      $("#cancelCreateBtn").addEventListener("click", () => $("#createOverlay").classList.remove("open"));
+      $("#createOverlay").addEventListener("click", e => {
+        if (e.target === $("#createOverlay")) $("#createOverlay").classList.remove("open");
+      });
+      $("#confirmCreateBtn").addEventListener("click", () => {
+        const rows = Math.min(100, Math.max(1, parseInt($("#inputRows").value, 10) || 8));
+        const cols = Math.min(26, Math.max(1, parseInt($("#inputCols").value, 10) || 5));
+        const border = $("#inputBorder").value;
+        const hasHeader = $("#inputHeader").checked;
+        $("#createOverlay").classList.remove("open");
+        createTable(rows, cols, border, hasHeader);
+      });
+
+      $("#undoBtn").addEventListener("click", undo);
+      $("#redoBtn").addEventListener("click", redo);
+      $("#boldBtn").addEventListener("click", () => toggleStyle("bold"));
+      $("#italicBtn").addEventListener("click", () => toggleStyle("italic"));
+      $("#alignLeftBtn").addEventListener("click", () => setAlign("left"));
+      $("#alignCenterBtn").addEventListener("click", () => setAlign("center"));
+      $("#alignRightBtn").addEventListener("click", () => setAlign("right"));
+      const colorPicker = $("#colorPicker");
+      $("#fillBtn").addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (paintMode) {
+          exitPaintMode();
+          return;
+        }
+        // Open native color picker
+        colorPicker.value = paintColor.replace("44", "") || "#1fbf75";
+        colorPicker.click();
+      });
+      colorPicker.addEventListener("input", () => {
+        const chosen = colorPicker.value;
+        paintColor = chosen;
+        // Apply to current selection immediately
+        applyFillToSelection(chosen);
+        // Enter paint mode so user can click more cells
+        enterPaintMode(chosen);
+      });
+      colorPicker.addEventListener("change", () => {
+        const chosen = colorPicker.value;
+        paintColor = chosen;
+        applyFillToSelection(chosen);
+        enterPaintMode(chosen);
+      });
+      $("#insertRowBtn").addEventListener("click", insertRow);
+      $("#insertColBtn").addEventListener("click", insertCol);
+      $("#deleteRowBtn").addEventListener("click", deleteRow);
+      $("#deleteColBtn").addEventListener("click", deleteCol);
+      $("#clearBtn").addEventListener("click", clearAll);
+
+      $("#borderSelect").addEventListener("change", e => {
+        state.border = e.target.value; pushHistory(); render(); queueSave();
+      });
+
+      const exportBtn = $("#exportBtn"), exportMenu = $("#exportMenu");
+      exportBtn.addEventListener("click", e => { e.stopPropagation(); exportMenu.classList.toggle("open"); });
+      document.addEventListener("click", () => exportMenu.classList.remove("open"));
+      exportMenu.addEventListener("click", e => e.stopPropagation());
+      $$(".export-item").forEach(item => {
+        item.addEventListener("click", () => {
+          exportMenu.classList.remove("open");
+          const type = item.dataset.type;
+          if (type === "png") exportPNG();
+          else if (type === "pdf") exportPDF();
+          else if (type === "csv") exportCSV();
+          else if (type === "xlsx") exportXLSX();
+        });
+      });
+
+      // ========== GOOGLE SIGN-IN ==========
+      // 1. Go to https://console.cloud.google.com/
+      // 2. Create a project → APIs & Services → Credentials
+      // 3. Create OAuth 2.0 Client ID (Web application)
+      // 4. Add your domain (e.g. https://yoursite.com) to Authorized JavaScript origins
+      // 5. Paste the Client ID below:
+      const GOOGLE_CLIENT_ID = "547146824467-2cfl2fv1hjflapb9tjosn8ltrj1q2iqn.apps.googleusercontent.com"; // <-- REPLACE WITH YOUR CLIENT ID
+
+      let currentUser = null;
+
+      function parseJwt(token) {
+        try {
+          const base64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+          return JSON.parse(atob(base64));
+        } catch (_) { return null; }
+      }
+
+      function showLoggedIn(user) {
+        currentUser = user;
+        $("#googleSignInBtn").classList.add("hidden");
+        $("#userBadge").classList.add("visible");
+        $("#userName").textContent = user.name || user.email || "User";
+        if (user.picture) {
+          $("#userAvatar").src = user.picture;
+          $("#userAvatar").style.display = "block";
+        } else {
+          $("#userAvatar").style.display = "none";
+        }
+        showToast(`Welcome, ${user.name || user.email}!`);
+      }
+
+      function showLoggedOut() {
+        currentUser = null;
+        $("#googleSignInBtn").classList.remove("hidden");
+        $("#userBadge").classList.remove("visible");
+      }
+
+      function handleGoogleCredential(response) {
+        const payload = parseJwt(response.credential);
+        if (!payload) {
+          showToast("Login failed", true);
+          return;
+        }
+        const user = {
+          id: payload.sub,
+          email: payload.email,
+          name: payload.name,
+          picture: payload.picture
+        };
+        showLoggedIn(user);
+        // Optional: you can later send this token to your backend
+      }
+
+      function initGoogleSignIn() {
+        if (GOOGLE_CLIENT_ID.includes("YOUR_GOOGLE_CLIENT_ID")) {
+          // Not configured yet – button will show a helpful message
+          $("#googleSignInBtn").addEventListener("click", () => {
+            showToast("Add your Google Client ID in the code first", true);
+          });
+          return;
+        }
+
+        const tryInit = () => {
+          if (typeof google === "undefined" || !google.accounts) {
+            setTimeout(tryInit, 200);
+            return;
+          }
+          google.accounts.id.initialize({
+            client_id: GOOGLE_CLIENT_ID,
+            callback: handleGoogleCredential,
+            auto_select: false,
+            cancel_on_tap_outside: true
+          });
+
+          $("#googleSignInBtn").addEventListener("click", () => {
+            google.accounts.id.prompt((notification) => {
+              if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+                // Fallback: render a one-tap style button or show message
+                showToast("Google Sign-In popup was blocked or not available");
+              }
+            });
+          });
+        };
+        tryInit();
+      }
+
+      $("#logoutBtn").addEventListener("click", () => {
+        showLoggedOut();
+        showToast("Logged out");
+        // Google does not have a simple client-side revoke for ID tokens;
+        // full logout is handled by clearing local state.
+      });
+
+      function initTheme() {
+        let saved = "dark";
+        try { saved = localStorage.getItem("sheetcraft_theme") || "dark"; } catch (_) {}
+        document.documentElement.setAttribute("data-theme", saved);
+      }
+      $("#themeBtn").addEventListener("click", () => {
+        const cur = document.documentElement.getAttribute("data-theme");
+        const next = cur === "light" ? "dark" : "light";
+        document.documentElement.setAttribute("data-theme", next);
+        try { localStorage.setItem("sheetcraft_theme", next); } catch (_) {}
+      });
+
+      // Init
+      initTheme();
+      initGoogleSignIn();
+      if (loadFromStorage()) {
+        showTableUI();
+        history = [snapshot()]; historyIdx = 0;
+        render(); updateUndoRedo();
+        setSaveStatus("Restored previous table");
+      } else {
+        hideTableUI();
+        setSaveStatus("Ready");
+      }
+    })();
+  </script>
+</body>
+</html>
