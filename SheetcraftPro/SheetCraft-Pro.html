@@ -9,8 +9,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <!-- Google Identity Services (Sign in with Google) -->
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <!-- Google Identity Services loaded on-demand in JS to avoid file:// / origin Script errors -->
   <style>
     :root {
       --bg: #0b0f13;
@@ -97,6 +96,7 @@
     }
     .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
     .btn svg { width: 15px; height: 15px; flex-shrink: 0; }
+    .theme-label { display: none; }
     .user-badge {
       display: none; align-items: center; gap: 8px;
       padding: 4px 10px 4px 6px; border-radius: 20px;
@@ -152,22 +152,38 @@
       border-bottom: 1px solid var(--border); flex-shrink: 0; overflow-x: auto;
     }
     .toolbar.visible { display: flex; }
-    .tb-group { display: flex; align-items: center; gap: 4px; }
-    .tb-sep { width: 1px; height: 22px; background: var(--border); margin: 0 6px; }
+    .tb-group { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+    .tb-sep { width: 1px; height: 22px; background: var(--border); margin: 0 6px; flex-shrink: 0; }
     .icon-btn {
       width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
       border-radius: 7px; color: var(--text-dim); border: 1px solid transparent;
+      flex-shrink: 0;
     }
     .icon-btn:hover { background: var(--panel-2); color: var(--text); }
     .icon-btn.active {
       background: var(--accent-dim); color: var(--accent); border-color: var(--accent);
     }
     .icon-btn svg { width: 15px; height: 15px; }
+    .tb-action {
+      display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+      height: 32px; padding: 0 10px; border-radius: 7px;
+      font-size: 12.5px; font-weight: 600;
+      background: var(--panel-2); border: 1px solid var(--border);
+      color: var(--text); flex-shrink: 0; transition: all 0.12s;
+    }
+    .tb-action:hover { background: var(--border-soft); border-color: var(--text-faint); }
+    .tb-action:active { transform: scale(0.97); }
+    .tb-action svg { width: 15px; height: 15px; flex-shrink: 0; color: var(--text-dim); }
+    .tb-action.tb-danger-soft { color: var(--text-dim); }
+    .tb-action.tb-clear { color: var(--danger); }
+    .tb-action.tb-clear svg { color: var(--danger); }
+    .tb-label { white-space: nowrap; }
     select.tb-select {
       height: 32px; background: var(--panel-2); border: 1px solid var(--border);
       color: var(--text); border-radius: 7px; font-size: 13px; font-weight: 500;
-      padding: 0 8px; cursor: pointer;
+      padding: 0 8px; cursor: pointer; flex-shrink: 0;
     }
+    .tb-format { position: relative; }
 
     /* Empty State */
     .empty-state {
@@ -248,6 +264,34 @@
     .status.visible { display: flex; }
     .status b { color: var(--text); font-weight: 700; }
 
+    /* Footer */
+    .footer {
+      flex-shrink: 0;
+      padding: 20px 24px 24px;
+      text-align: center;
+      border-top: 1px solid var(--border);
+      background: var(--panel);
+    }
+    .footer.hidden { display: none; }
+    .footer-quote {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-dim);
+      line-height: 1.55;
+      max-width: 420px;
+      margin: 0 auto 12px;
+      font-style: italic;
+    }
+    .footer-quote::before { content: "“"; color: var(--accent); font-style: normal; font-weight: 700; margin-right: 2px; }
+    .footer-quote::after { content: "”"; color: var(--accent); font-style: normal; font-weight: 700; margin-left: 2px; }
+    .footer-copy {
+      font-size: 12px;
+      color: var(--text-faint);
+      font-weight: 500;
+      letter-spacing: 0.01em;
+    }
+    .footer-copy strong { color: var(--text-dim); font-weight: 600; }
+
     /* Modal */
     .overlay {
       position: fixed; inset: 0; background: rgba(0,0,0,0.55);
@@ -314,9 +358,322 @@
     }
     ::-webkit-scrollbar-thumb:hover { background: var(--text-faint); }
 
+    /* Hamburger button (hidden on desktop) */
+    .hamburger {
+      display: none;
+      width: 40px; height: 40px; align-items: center; justify-content: center;
+      border-radius: 8px; border: 1px solid var(--border);
+      background: var(--panel-2); color: var(--text); flex-shrink: 0;
+      margin-left: auto;
+      transition: background 0.12s, border-color 0.12s;
+    }
+    .hamburger:hover { background: var(--border-soft); }
+    .hamburger svg { width: 20px; height: 20px; }
+    .hamburger .icon-close { display: none; }
+    .hamburger.open .icon-menu { display: none; }
+    .hamburger.open .icon-close { display: block; }
+
+    /* Mobile nav drawer / panel */
+    .mobile-nav-overlay {
+      display: none;
+      position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+      z-index: 90; opacity: 0; transition: opacity 0.2s;
+    }
+    .mobile-nav-overlay.open { display: block; opacity: 1; }
+
+    /* ========== RESPONSIVE BREAKPOINTS ========== */
+
+    /* Tablet landscape / small laptop */
+    @media (max-width: 1024px) {
+      .header { padding: 0 14px; gap: 10px; }
+      .btn { padding: 0 11px; font-size: 13px; height: 34px; }
+      .btn svg { width: 14px; height: 14px; }
+      .save-indicator { font-size: 11.5px; padding: 3px 8px; }
+      .toolbar { padding: 0 12px; gap: 4px; }
+      table.sheet th, table.sheet td {
+        min-width: 96px; max-width: 220px; height: 38px;
+      }
+      table.sheet tbody th, table.sheet thead th.corner {
+        width: 40px; min-width: 40px;
+      }
+    }
+
+    /* Tablet portrait / large phones */
+    @media (max-width: 768px) {
+      :root {
+        --header-h: 56px;
+        --toolbar-h: auto;
+        --status-h: 36px;
+      }
+      .header { padding: 0 12px; gap: 8px; }
+      .brand-name { font-size: 15px; }
+      .save-indicator { display: none; }
+      .header-actions { gap: 6px; }
+
+      /* Hide text labels on some buttons, keep icons */
+      #undoBtn, #redoBtn {
+        padding: 0 10px;
+      }
+      #undoBtn span, #redoBtn span { display: none; }
+
+      .toolbar {
+        flex-wrap: wrap;
+        height: auto;
+        min-height: 48px;
+        padding: 8px 10px;
+        gap: 6px;
+        row-gap: 8px;
+        align-content: center;
+      }
+      .tb-sep { display: none; }
+      .tb-action {
+        height: 34px; padding: 0 9px; font-size: 12px; gap: 4px;
+      }
+      .tb-action svg { width: 14px; height: 14px; }
+      .icon-btn { width: 34px; height: 34px; }
+      select.tb-select { height: 34px; font-size: 12px; padding: 0 6px; max-width: 130px; }
+
+      table.sheet { font-size: 13px; }
+      table.sheet th, table.sheet td {
+        min-width: 88px; max-width: 180px; height: 36px;
+      }
+      .cell { padding: 6px 10px; }
+      .cell input { padding: 6px 10px; font-size: 13px; }
+
+      .empty-state { padding: 28px 16px; gap: 18px; }
+      .empty-state h1 { font-size: 24px; }
+      .empty-state p { font-size: 14px; max-width: 340px; }
+      .empty-icon { width: 64px; height: 64px; border-radius: 16px; }
+      .empty-icon svg { width: 32px; height: 32px; }
+
+      .modal { width: min(380px, calc(100vw - 32px)); padding: 20px; }
+      .status { padding: 0 12px; font-size: 12px; }
+      .toast { bottom: 52px; font-size: 13px; padding: 9px 16px; max-width: calc(100vw - 24px); text-align: center; }
+      .footer { padding: 16px 16px 20px; }
+      .footer-quote { font-size: 13px; max-width: 360px; margin-bottom: 10px; }
+      .footer-copy { font-size: 11.5px; }
+    }
+
+    /* Mobile phones */
     @media (max-width: 640px) {
       .brand-name { display: none; }
-      .empty-state h1 { font-size: 22px; }
+      .save-indicator { display: none; }
+
+      /* Hamburger visible; collapse header actions into drawer */
+      .hamburger { display: flex; }
+      .header-actions {
+        display: none;
+        position: fixed;
+        top: var(--header-h);
+        left: 0; right: 0;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0;
+        background: var(--panel);
+        border-bottom: 1px solid var(--border);
+        box-shadow: 0 12px 32px rgba(0,0,0,0.35);
+        padding: 10px 12px 14px;
+        z-index: 95;
+        max-height: calc(100vh - var(--header-h));
+        overflow-y: auto;
+      }
+      .header-actions.open {
+        display: flex;
+      }
+      .header-actions .btn,
+      .header-actions .export-wrap,
+      .header-actions .user-badge {
+        width: 100%;
+      }
+      .header-actions .btn {
+        height: 44px;
+        justify-content: flex-start;
+        padding: 0 14px;
+        font-size: 14px;
+        border-radius: 8px;
+        margin-bottom: 4px;
+      }
+      .header-actions .btn svg { width: 18px; height: 18px; }
+      /* Restore Undo/Redo labels inside the mobile drawer */
+      .header-actions #undoBtn span,
+      .header-actions #redoBtn span { display: inline; }
+      .header-actions #themeBtn {
+        justify-content: flex-start;
+      }
+      .theme-label { display: inline; }
+      .header-actions .export-wrap { position: static; }
+      .header-actions .export-menu {
+        position: static;
+        width: 100%;
+        display: none;
+        box-shadow: none;
+        border: 1px solid var(--border);
+        margin: 4px 0 8px;
+        padding: 4px;
+      }
+      .header-actions .export-menu.open { display: block; }
+      .header-actions .export-item {
+        padding: 12px 14px;
+        font-size: 14px;
+      }
+      .header-actions .user-badge {
+        justify-content: flex-start;
+        padding: 10px 12px;
+        margin-bottom: 4px;
+        border-radius: 8px;
+        width: 100%;
+      }
+      .header-actions .user-badge .name { max-width: none; }
+      .header-actions #googleSignInBtn { width: 100%; }
+
+      /* Keep primary "New Table" more prominent in drawer */
+      .header-actions #newTableBtn {
+        margin-top: 6px;
+        order: 10;
+      }
+
+      /* Clean 2-row toolbar on phones — no congestion */
+      .toolbar {
+        display: none;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        padding: 10px 10px 12px;
+        overflow-x: visible;
+        flex-wrap: nowrap;
+        height: auto;
+      }
+      .toolbar.visible { display: flex; }
+      .tb-sep { display: none; }
+
+      .tb-group {
+        width: 100%;
+        justify-content: space-between;
+        gap: 6px;
+      }
+      .tb-structure {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 6px;
+      }
+      .tb-format {
+        display: flex;
+        justify-content: space-between;
+        gap: 4px;
+      }
+      .tb-options {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .tb-action {
+        height: 40px;
+        padding: 0 6px;
+        font-size: 11.5px;
+        gap: 4px;
+        width: 100%;
+        justify-content: center;
+        border-radius: 8px;
+      }
+      .tb-action svg { width: 15px; height: 15px; }
+      .tb-structure .tb-label { font-size: 11px; }
+
+      .icon-btn {
+        width: 40px; height: 40px; flex: 1;
+        border: 1px solid var(--border);
+        background: var(--panel-2);
+        border-radius: 8px;
+      }
+      .icon-btn svg { width: 16px; height: 16px; }
+
+      select.tb-select {
+        flex: 1;
+        height: 40px;
+        font-size: 13px;
+        max-width: none;
+        padding: 0 10px;
+        border-radius: 8px;
+      }
+      .tb-clear {
+        flex: 0 0 auto;
+        width: auto;
+        min-width: 72px;
+        height: 40px;
+        padding: 0 12px;
+      }
+
+      table.sheet th, table.sheet td {
+        min-width: 78px; max-width: 160px; height: 34px;
+      }
+      table.sheet tbody th, table.sheet thead th.corner {
+        width: 36px; min-width: 36px;
+      }
+      table.sheet { font-size: 12.5px; }
+      .cell { padding: 5px 8px; }
+      .cell input { padding: 5px 8px; font-size: 12.5px; }
+
+      .empty-state { padding: 24px 14px; gap: 16px; }
+      .empty-state h1 { font-size: 20px; letter-spacing: -0.02em; }
+      .empty-state p { font-size: 13.5px; max-width: 300px; line-height: 1.5; }
+      .empty-icon { width: 56px; height: 56px; border-radius: 14px; }
+      .empty-icon svg { width: 28px; height: 28px; }
+      #createTableBtn { height: 42px; padding: 0 20px; font-size: 14px; }
+
+      .modal {
+        width: calc(100vw - 24px);
+        max-width: 380px;
+        padding: 18px 16px;
+        border-radius: 12px;
+      }
+      .modal h2 { font-size: 17px; }
+      .modal .sub { font-size: 13px; margin-bottom: 16px; }
+      .form-row input[type="number"], .form-row select { height: 42px; font-size: 15px; }
+      .modal-actions { margin-top: 18px; }
+      .modal-actions .btn { height: 40px; flex: 1; justify-content: center; }
+
+      .status {
+        flex-wrap: wrap;
+        height: auto;
+        min-height: var(--status-h);
+        padding: 6px 10px;
+        gap: 4px;
+        font-size: 11.5px;
+      }
+      .status > div:last-child { display: none; }
+
+      .toast { bottom: 48px; left: 12px; right: 12px; transform: none; width: auto; }
+      .footer { padding: 14px 14px 18px; }
+      .footer-quote { font-size: 12.5px; max-width: 300px; margin-bottom: 8px; line-height: 1.5; }
+      .footer-copy { font-size: 11px; }
+    }
+
+    /* Very small phones */
+    @media (max-width: 380px) {
+      .header { padding: 0 8px; }
+      .logo { width: 28px; height: 28px; border-radius: 7px; }
+      .logo svg { width: 15px; height: 15px; }
+      .hamburger { width: 36px; height: 36px; }
+      table.sheet th, table.sheet td {
+        min-width: 68px; height: 32px;
+      }
+      .tb-action { height: 38px; font-size: 11px; padding: 0 4px; }
+      .tb-structure .tb-label { font-size: 10px; }
+      .icon-btn { width: 36px; height: 36px; }
+      select.tb-select, .tb-clear { height: 38px; }
+      .empty-state h1 { font-size: 18px; }
+    }
+
+    /* Touch-friendly: larger hit targets when primary input is coarse */
+    @media (pointer: coarse) {
+      .btn { min-height: 36px; }
+      table.sheet th, table.sheet td { height: 42px; }
+      .cell { padding: 8px 10px; }
+    }
+    /* On coarse pointers but wider than phone, keep desktop icon sizes sensible */
+    @media (pointer: coarse) and (min-width: 641px) {
+      .icon-btn { width: 36px; height: 36px; }
+      .tb-action { height: 36px; }
     }
   </style>
 </head>
@@ -330,14 +687,23 @@
         <div class="brand-name">SheetCraft <span>Pro</span></div>
         <div class="save-indicator" id="saveIndicator">Ready</div>
       </div>
-      <div class="header-actions">
+      <button class="hamburger" id="hamburgerBtn" aria-label="Open menu" aria-expanded="false" title="Menu">
+        <svg class="icon-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+          <path d="M4 7h16M4 12h16M4 17h16"/>
+        </svg>
+        <svg class="icon-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+          <path d="M6 6l12 12M18 6L6 18"/>
+        </svg>
+      </button>
+      <div class="mobile-nav-overlay" id="mobileNavOverlay"></div>
+      <div class="header-actions" id="headerActions">
         <button class="btn" id="undoBtn" title="Undo (Ctrl+Z)" disabled>
           <svg viewBox="0 0 24 24" fill="none"><path d="M9 14l-4-4 4-4M5 10h9a5 5 0 010 10h-1" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Undo
+          <span>Undo</span>
         </button>
         <button class="btn" id="redoBtn" title="Redo (Ctrl+Y)" disabled>
           <svg viewBox="0 0 24 24" fill="none"><path d="M15 14l4-4-4-4M19 10h-9a5 5 0 000 10h1" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Redo
+          <span>Redo</span>
         </button>
         <div class="export-wrap">
           <button class="btn" id="exportBtn">
@@ -365,6 +731,7 @@
         </div>
         <button class="btn" id="themeBtn" title="Toggle theme">
           <svg viewBox="0 0 24 24" fill="none"><path d="M21 12.8A9 9 0 1111.2 3 7 7 0 0021 12.8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span class="theme-label">Theme</span>
         </button>
         <button class="btn" id="googleSignInBtn" title="Sign in with Google">
           <svg viewBox="0 0 24 24" width="16" height="16"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
@@ -383,41 +750,49 @@
     </header>
 
     <div class="toolbar" id="toolbar">
-      <div class="tb-group">
-        <button class="btn" id="insertRowBtn" style="height:32px;padding:0 10px;font-size:12.5px;">+ Row</button>
-        <button class="btn" id="insertColBtn" style="height:32px;padding:0 10px;font-size:12.5px;">+ Column</button>
-        <button class="btn" id="deleteRowBtn" style="height:32px;padding:0 10px;font-size:12.5px;">− Row</button>
-        <button class="btn" id="deleteColBtn" style="height:32px;padding:0 10px;font-size:12.5px;">− Column</button>
+      <div class="tb-group tb-structure">
+        <button class="tb-action" id="insertRowBtn" title="Add row">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M17 15v6M14 18h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          <span class="tb-label">Row</span>
+        </button>
+        <button class="tb-action" id="insertColBtn" title="Add column">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M6 4v16M12 4v16M18 4v10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M15 17h6M18 14v6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          <span class="tb-label">Col</span>
+        </button>
+        <button class="tb-action tb-danger-soft" id="deleteRowBtn" title="Delete last row">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M14 18h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          <span class="tb-label">−Row</span>
+        </button>
+        <button class="tb-action tb-danger-soft" id="deleteColBtn" title="Delete last column">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M6 4v16M12 4v16M18 4v10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M15 17h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          <span class="tb-label">−Col</span>
+        </button>
       </div>
       <div class="tb-sep"></div>
-      <div class="tb-group">
+      <div class="tb-group tb-format">
         <button class="icon-btn" id="boldBtn" title="Bold"><svg viewBox="0 0 24 24" fill="none"><path d="M6 4h7a4 4 0 010 8H6zM6 12h8a4 4 0 010 8H6z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></button>
         <button class="icon-btn" id="italicBtn" title="Italic"><svg viewBox="0 0 24 24" fill="none"><path d="M10 4h8M6 20h8M14 4L10 20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
-      </div>
-      <div class="tb-sep"></div>
-      <div class="tb-group">
         <button class="icon-btn" id="alignLeftBtn" title="Align left"><svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h10M4 18h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
         <button class="icon-btn" id="alignCenterBtn" title="Align center"><svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16M7 12h10M5 18h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
         <button class="icon-btn" id="alignRightBtn" title="Align right"><svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16M10 12h10M6 18h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
-      </div>
-      <div class="tb-sep"></div>
-      <div class="tb-group" style="position:relative;">
         <button class="icon-btn" id="fillBtn" title="Fill color — click to pick color, click again to exit paint mode">
           <svg viewBox="0 0 24 24" fill="none"><path d="M19.14 3.5L20.5 4.86l-9.19 9.19-1.41-1.41L19.14 3.5z" stroke="currentColor" stroke-width="1.6"/><path d="M11.5 14.5L5 21l-2-2 6.5-6.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 21h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
         </button>
         <input type="color" id="colorPicker" value="#1fbf75" />
       </div>
       <div class="tb-sep"></div>
-      <div class="tb-group">
-        <select class="tb-select" id="borderSelect">
+      <div class="tb-group tb-options">
+        <select class="tb-select" id="borderSelect" title="Border style">
           <option value="none">No Borders</option>
           <option value="light" selected>Light Borders</option>
           <option value="medium">Medium Borders</option>
           <option value="strong">Strong Borders</option>
         </select>
+        <button class="tb-action tb-clear" id="clearBtn" title="Clear all data">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M4 7h16M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span class="tb-label">Clear</span>
+        </button>
       </div>
-      <div style="flex:1"></div>
-      <button class="btn" id="clearBtn" style="height:32px;padding:0 10px;font-size:12.5px;color:var(--danger);">Clear All</button>
     </div>
 
     <div class="empty-state" id="emptyState">
@@ -446,6 +821,11 @@
       </div>
       <div>Click a cell to edit • Ctrl+Z to undo</div>
     </div>
+
+    <footer class="footer" id="appFooter">
+      <p class="footer-quote">A quick snap of the table you want — design it, fill it, export it.</p>
+      <p class="footer-copy">© 2026 <strong>SheetCraft Pro</strong>. All rights reserved.</p>
+    </footer>
   </div>
 
   <div class="overlay" id="createOverlay">
@@ -674,6 +1054,8 @@
         $("#gridArea").classList.add("visible");
         $("#toolbar").classList.add("visible");
         $("#statusBar").classList.add("visible");
+        const footer = $("#appFooter");
+        if (footer) footer.classList.add("hidden");
       }
 
       function hideTableUI() {
@@ -681,6 +1063,8 @@
         $("#gridArea").classList.remove("visible");
         $("#toolbar").classList.remove("visible");
         $("#statusBar").classList.remove("visible");
+        const footer = $("#appFooter");
+        if (footer) footer.classList.remove("hidden");
       }
 
       function render() {
@@ -1130,19 +1514,37 @@
       }
 
       function exportXLSX() {
-        const ws = XLSX.utils.aoa_to_sheet(getDataForExport());
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
-        XLSX.writeFile(wb, "sheetcraft-table.xlsx");
-        showToast("Excel exported");
+        try {
+          if (typeof XLSX === "undefined") {
+            showToast("Excel library not loaded", true);
+            return;
+          }
+          const ws = XLSX.utils.aoa_to_sheet(getDataForExport());
+          const wb = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+          XLSX.writeFile(wb, "sheetcraft-table.xlsx");
+          showToast("Excel exported");
+        } catch (err) {
+          console.warn(err);
+          showToast("Excel export failed", true);
+        }
       }
 
       function captureTable(cb) {
-        const table = $("#sheet");
-        const bg = getComputedStyle(document.documentElement).getPropertyValue("--panel").trim() || "#11171d";
-        html2canvas(table, {
-          backgroundColor: bg, scale: 2, useCORS: true, logging: false, allowTaint: true
-        }).then(canvas => cb(canvas)).catch(() => cb(null));
+        try {
+          if (typeof html2canvas !== "function") {
+            showToast("Image library not loaded", true);
+            return cb(null);
+          }
+          const table = $("#sheet");
+          if (!table) return cb(null);
+          const bg = getComputedStyle(document.documentElement).getPropertyValue("--panel").trim() || "#11171d";
+          html2canvas(table, {
+            backgroundColor: bg, scale: 2, useCORS: true, logging: false, allowTaint: true
+          }).then(canvas => cb(canvas)).catch(() => cb(null));
+        } catch (_) {
+          cb(null);
+        }
       }
 
       function exportPNG() {
@@ -1160,15 +1562,23 @@
         showToast("Creating PDF…");
         captureTable(canvas => {
           if (!canvas) return showToast("Export failed", true);
-          const img = canvas.toDataURL("image/png");
-          const { jsPDF } = window.jspdf;
-          const pdf = new jsPDF({
-            orientation: canvas.width > canvas.height ? "l" : "p",
-            unit: "pt", format: [canvas.width / 2, canvas.height / 2]
-          });
-          pdf.addImage(img, "PNG", 0, 0, canvas.width / 2, canvas.height / 2);
-          pdf.save("sheetcraft-table.pdf");
-          showToast("PDF exported");
+          try {
+            if (!window.jspdf || !window.jspdf.jsPDF) {
+              return showToast("PDF library not loaded", true);
+            }
+            const img = canvas.toDataURL("image/png");
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF({
+              orientation: canvas.width > canvas.height ? "l" : "p",
+              unit: "pt", format: [canvas.width / 2, canvas.height / 2]
+            });
+            pdf.addImage(img, "PNG", 0, 0, canvas.width / 2, canvas.height / 2);
+            pdf.save("sheetcraft-table.pdf");
+            showToast("PDF exported");
+          } catch (err) {
+            console.warn(err);
+            showToast("PDF export failed", true);
+          }
         });
       }
 
@@ -1196,30 +1606,31 @@
       $("#alignCenterBtn").addEventListener("click", () => setAlign("center"));
       $("#alignRightBtn").addEventListener("click", () => setAlign("right"));
       const colorPicker = $("#colorPicker");
-      $("#fillBtn").addEventListener("click", (e) => {
-        e.stopPropagation();
-        if (paintMode) {
-          exitPaintMode();
-          return;
-        }
-        // Open native color picker
-        colorPicker.value = paintColor.replace("44", "") || "#1fbf75";
-        colorPicker.click();
-      });
-      colorPicker.addEventListener("input", () => {
-        const chosen = colorPicker.value;
-        paintColor = chosen;
-        // Apply to current selection immediately
-        applyFillToSelection(chosen);
-        // Enter paint mode so user can click more cells
-        enterPaintMode(chosen);
-      });
-      colorPicker.addEventListener("change", () => {
-        const chosen = colorPicker.value;
-        paintColor = chosen;
-        applyFillToSelection(chosen);
-        enterPaintMode(chosen);
-      });
+      const fillBtn = $("#fillBtn");
+      if (fillBtn && colorPicker) {
+        fillBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (paintMode) {
+            exitPaintMode();
+            return;
+          }
+          // Open native color picker
+          colorPicker.value = (paintColor || "#1fbf75").replace("44", "") || "#1fbf75";
+          colorPicker.click();
+        });
+        colorPicker.addEventListener("input", () => {
+          const chosen = colorPicker.value;
+          paintColor = chosen;
+          applyFillToSelection(chosen);
+          enterPaintMode(chosen);
+        });
+        colorPicker.addEventListener("change", () => {
+          const chosen = colorPicker.value;
+          paintColor = chosen;
+          applyFillToSelection(chosen);
+          enterPaintMode(chosen);
+        });
+      }
       $("#insertRowBtn").addEventListener("click", insertRow);
       $("#insertColBtn").addEventListener("click", insertCol);
       $("#deleteRowBtn").addEventListener("click", deleteRow);
@@ -1231,19 +1642,24 @@
       });
 
       const exportBtn = $("#exportBtn"), exportMenu = $("#exportMenu");
-      exportBtn.addEventListener("click", e => { e.stopPropagation(); exportMenu.classList.toggle("open"); });
-      document.addEventListener("click", () => exportMenu.classList.remove("open"));
-      exportMenu.addEventListener("click", e => e.stopPropagation());
-      $$(".export-item").forEach(item => {
-        item.addEventListener("click", () => {
-          exportMenu.classList.remove("open");
-          const type = item.dataset.type;
-          if (type === "png") exportPNG();
-          else if (type === "pdf") exportPDF();
-          else if (type === "csv") exportCSV();
-          else if (type === "xlsx") exportXLSX();
+      if (exportBtn && exportMenu) {
+        exportBtn.addEventListener("click", e => {
+          e.stopPropagation();
+          exportMenu.classList.toggle("open");
         });
-      });
+        document.addEventListener("click", () => exportMenu.classList.remove("open"));
+        exportMenu.addEventListener("click", e => e.stopPropagation());
+        $$(".export-item").forEach(item => {
+          item.addEventListener("click", () => {
+            exportMenu.classList.remove("open");
+            const type = item.dataset.type;
+            if (type === "png") exportPNG();
+            else if (type === "pdf") exportPDF();
+            else if (type === "csv") exportCSV();
+            else if (type === "xlsx") exportXLSX();
+          });
+        });
+      }
 
       // ========== GOOGLE SIGN-IN ==========
       // 1. Go to https://console.cloud.google.com/
@@ -1298,37 +1714,86 @@
         // Optional: you can later send this token to your backend
       }
 
+      let googleInitDone = false;
+      let googleScriptLoading = false;
+
+      function loadGoogleScript() {
+        return new Promise((resolve, reject) => {
+          if (typeof google !== "undefined" && google.accounts && google.accounts.id) {
+            resolve();
+            return;
+          }
+          if (googleScriptLoading) {
+            // Wait for in-flight load
+            const t0 = Date.now();
+            const wait = setInterval(() => {
+              if (typeof google !== "undefined" && google.accounts && google.accounts.id) {
+                clearInterval(wait);
+                resolve();
+              } else if (Date.now() - t0 > 8000) {
+                clearInterval(wait);
+                reject(new Error("Google script timeout"));
+              }
+            }, 100);
+            return;
+          }
+          googleScriptLoading = true;
+          const s = document.createElement("script");
+          s.src = "https://accounts.google.com/gsi/client";
+          s.async = true;
+          s.onload = () => resolve();
+          s.onerror = () => {
+            googleScriptLoading = false;
+            reject(new Error("Failed to load Google Sign-In script"));
+          };
+          document.head.appendChild(s);
+        });
+      }
+
+      function ensureGoogleInitialized() {
+        if (googleInitDone) return;
+        google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: handleGoogleCredential,
+          auto_select: false,
+          cancel_on_tap_outside: true
+        });
+        googleInitDone = true;
+      }
+
       function initGoogleSignIn() {
-        if (GOOGLE_CLIENT_ID.includes("YOUR_GOOGLE_CLIENT_ID")) {
-          // Not configured yet – button will show a helpful message
-          $("#googleSignInBtn").addEventListener("click", () => {
+        const btn = $("#googleSignInBtn");
+        if (!btn) return;
+
+        if (!GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID.includes("YOUR_GOOGLE_CLIENT_ID")) {
+          btn.addEventListener("click", () => {
             showToast("Add your Google Client ID in the code first", true);
           });
           return;
         }
 
-        const tryInit = () => {
-          if (typeof google === "undefined" || !google.accounts) {
-            setTimeout(tryInit, 200);
-            return;
-          }
-          google.accounts.id.initialize({
-            client_id: GOOGLE_CLIENT_ID,
-            callback: handleGoogleCredential,
-            auto_select: false,
-            cancel_on_tap_outside: true
-          });
-
-          $("#googleSignInBtn").addEventListener("click", () => {
+        btn.addEventListener("click", async () => {
+          try {
+            // file:// origin cannot use Google OAuth
+            if (location.protocol === "file:") {
+              showToast("Google Sign-In needs http/https (not file://)", true);
+              return;
+            }
+            showToast("Loading Google Sign-In…");
+            await loadGoogleScript();
+            ensureGoogleInitialized();
             google.accounts.id.prompt((notification) => {
-              if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-                // Fallback: render a one-tap style button or show message
-                showToast("Google Sign-In popup was blocked or not available");
-              }
+              try {
+                if (notification && (notification.isNotDisplayed() || notification.isSkippedMoment())) {
+                  showToast("Google Sign-In popup was blocked or not available");
+                }
+              } catch (_) {}
             });
-          });
-        };
-        tryInit();
+          } catch (err) {
+            console.warn("Google Sign-In error:", err);
+            showToast("Google Sign-In is not available", true);
+          }
+        });
       }
 
       $("#logoutBtn").addEventListener("click", () => {
@@ -1350,17 +1815,94 @@
         try { localStorage.setItem("sheetcraft_theme", next); } catch (_) {}
       });
 
+      // ========== MOBILE HAMBURGER MENU ==========
+      const hamburgerBtn = $("#hamburgerBtn");
+      const headerActions = $("#headerActions");
+      const mobileNavOverlay = $("#mobileNavOverlay");
+
+      function openMobileNav() {
+        if (!headerActions || !hamburgerBtn) return;
+        headerActions.classList.add("open");
+        hamburgerBtn.classList.add("open");
+        if (mobileNavOverlay) mobileNavOverlay.classList.add("open");
+        hamburgerBtn.setAttribute("aria-label", "Close menu");
+        hamburgerBtn.setAttribute("aria-expanded", "true");
+      }
+      function closeMobileNav() {
+        if (!headerActions || !hamburgerBtn) return;
+        headerActions.classList.remove("open");
+        hamburgerBtn.classList.remove("open");
+        if (mobileNavOverlay) mobileNavOverlay.classList.remove("open");
+        hamburgerBtn.setAttribute("aria-label", "Open menu");
+        hamburgerBtn.setAttribute("aria-expanded", "false");
+        // Also close export submenu if open
+        if (exportMenu) exportMenu.classList.remove("open");
+      }
+      function toggleMobileNav() {
+        if (!headerActions) return;
+        if (headerActions.classList.contains("open")) closeMobileNav();
+        else openMobileNav();
+      }
+
+      if (hamburgerBtn) {
+        hamburgerBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          toggleMobileNav();
+        });
+      }
+      if (mobileNavOverlay) {
+        mobileNavOverlay.addEventListener("click", closeMobileNav);
+      }
+
+      // Close drawer after choosing an action (better UX on mobile)
+      if (headerActions) {
+        headerActions.addEventListener("click", (e) => {
+          const btn = e.target.closest("button, .export-item");
+          if (!btn) return;
+          // Don't close when opening the Export menu itself
+          if (btn.id === "exportBtn") return;
+          // Close after a short delay so the click registers
+          setTimeout(closeMobileNav, 120);
+        });
+      }
+
+      // Close on resize back to desktop
+      window.addEventListener("resize", () => {
+        if (window.innerWidth > 640) closeMobileNav();
+      });
+
+      // Close on Escape
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && headerActions && headerActions.classList.contains("open")) {
+          closeMobileNav();
+        }
+      });
+
+      // Global safety net — prevent third-party / unexpected errors from breaking the app
+      window.addEventListener("error", (e) => {
+        // "Script error." is the browser's sanitized cross-origin message
+        if (e && e.message === "Script error.") {
+          e.preventDefault();
+          return true;
+        }
+      });
+
       // Init
-      initTheme();
-      initGoogleSignIn();
-      if (loadFromStorage()) {
-        showTableUI();
-        history = [snapshot()]; historyIdx = 0;
-        render(); updateUndoRedo();
-        setSaveStatus("Restored previous table");
-      } else {
-        hideTableUI();
-        setSaveStatus("Ready");
+      try {
+        initTheme();
+        initGoogleSignIn();
+        if (loadFromStorage()) {
+          showTableUI();
+          history = [snapshot()]; historyIdx = 0;
+          render(); updateUndoRedo();
+          setSaveStatus("Restored previous table");
+        } else {
+          hideTableUI();
+          setSaveStatus("Ready");
+        }
+      } catch (err) {
+        console.error("SheetCraft init error:", err);
+        try { hideTableUI(); setSaveStatus("Ready"); } catch (_) {}
       }
     })();
   </script>
