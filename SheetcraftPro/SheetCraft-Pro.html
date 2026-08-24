@@ -1667,7 +1667,7 @@
       // 3. Create OAuth 2.0 Client ID (Web application)
       // 4. Add your domain (e.g. https://yoursite.com) to Authorized JavaScript origins
       // 5. Paste the Client ID below:
-      const GOOGLE_CLIENT_ID = "547146824467-2cfl2fv1hjflapb9tjosn8ltrj1q2iqn.apps.googleusercontent.com"; // <-- REPLACE WITH YOUR CLIENT ID
+      const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID; // create a .env file and put you api key there
 
       let currentUser = null;
 
